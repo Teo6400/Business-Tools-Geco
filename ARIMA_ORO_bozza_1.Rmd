@@ -11,6 +11,7 @@ library(fpp2)
 library(zoo) #al momento non in uso perché non riuscivo a far girare la funzione zoo
 library(ggplot2)
 library(fpp2)
+library(lubridate)
 
 ORO <- read.csv("C:/Users/famdr/Downloads/amCharts.csv")
 ```
@@ -56,14 +57,7 @@ ggplot(data = ts_ORO_nondiff, aes(x = "Data", y = "Prezzo")) +
 ```
 
 
-Differenziamo la serie storica:
-```{r}
-ts_ORO <- diff(ts_ORO_nondiff, differences = 1)
-plot(ts_ORO, main = "Serie Storica Differenziata 1 volta", ylab = "Prezzo", xlab = "Tempo")
-```
-
-
-Andiamo a fare l'Autocorrelation: [USIAMO LA SERIE NON DIFFERENZIATA!]
+Andiamo a fare l'Autocorrelation: #[USIAMO LA SERIE NON DIFFERENZIATA!]
 
 ```{r}
 #Autocorrelazione ci serve per trovare il parametro q (ossia l'ordine della media mobile) : ACF decresce rapidamente MA basso, se lentamente invece sappiamo che la serie propbabilmente non è stazionaria (come nel nostro caso). [il "probabilmente" viene da Chatgpt, comunque abbiamo anche verificato dal grafico della serie storica che non è stazionario].
@@ -99,10 +93,21 @@ ggplot(df_pacf, aes(x = Lag, y = "PACF")) +
 ###Per noi però questo valore di p non è affidabile perché la serie non è stazionaria (ora la diff per renderla stazionaria, considereremo p calcolato con il PACF sulla serie resa stazionaria!)##
 ```
 
+
+Differenziamo la serie storica:
+```{r}
+ts_ORO <- diff(ts_ORO_nondiff, differences = 1)
+plot(ts_ORO, main = "Serie Storica Differenziata 1 volta", ylab = "Prezzo", xlab = "Tempo")
+```
+
+
 VEDIAMO ACF E PACF DIFFERENZIATI:
 ```{r}
 #Autocorrelazione totale
 acf(ts_ORO, ylab = "ACF", xlab = "lag") #esce un grafico che non mi piace troppo
+
+ggAcf(ts_ORO,lag.max = 23)+theme_bw()+ylab(label="Total Students")+labs(title="Differenciated Total Students Sapienza")
+
 
 #rifacciamo il grafico acf con ggplot che viene più carino
 acf_data <- acf(ts_ORO, plot = FALSE)
@@ -124,30 +129,297 @@ pacf(ts_ORO, ylab = "PACF", xlab = "lag", plot = TRUE)
 
 ```
 
+```{r}
+#Per vedere acf serie storica e pacf insieme
+ggtsdisplay(ts_ORO)
+ggtsdisplay(ts_ORO_nondiff)
+
+
+
+```
+
+
+
+
 RECAP:
 
 ARIMA(p,d,q)
 
 #P
 p: andiamo a vdere i picchi significativi nel grafico del PACF della serie resa stazionaria:
-p=1
-p=2
-p=16
-
-(1,d,q)
-(2,d,q)
-(16,d,q)
- 
+p=1    ->  (1,d,q)
+p=2    ->  (2,d,q)
+p=16   ->  (16,d,q)
 questi sono valori di p per cui andare a fare dei confronti (eventualmente)
 
 #D
 d: abbiamo differenziato una sola volta per rendere la serie stazionaria
-d=1
-
-(p,1,q)
+d=1     -> (p,1,q)
 
 #Q
 q: CI STAVAMO RAGIONANDO QUANDO CI SIAMO STACCATI
+
+#------------------------------------------------------------------------------#
+
+Arrivati qui, possiamo concludere che è possibile usare il modello autoArima (forse p sbagliata)
+
+```{r}
+ARIMA_model <- auto.arima(ORO$Prezzo,stepwise=FALSE,approximation=FALSE,seasonal=F)
+# Evaluate the model
+summary(ARIMA_model)  #modello ottimo trovato ARIMA(0,1,4) 
+# check the residuals of the model
+checkresiduals(ARIMA_model)
+# do the residuals looks like white noise?
+acf(ARIMA_model$residuals)
+Box.test(ARIMA_model$residuals, lag = 28, fitdf = 5, type = "Ljung")
+autoplot(forecast(ARIMA_model))
+```
+
+auto.arima()
+ARIMA_model <- auto.arima(ORO$Prezzo,stepwise=FALSE,approximation=FALSE,seasonal=F)
+
+autoplot(forecast(ARIMA_model))
+autoplot(forecast(model1))
+
+
+```{r}
+```
+
+
+
+
+PROVIAMO I MODELLI:
+(0,1,1) - (1,1,1) - (2,1,1) - (16,1,1)
+(0,1,2) - (1,1,2) - (2,1,2) - (16,1,2)
+(0,1,3) - (1,1,3) - (2,1,3) - (16,1,3)
+(0,1,4) - (1,1,4) - (2,1,4) - (16,1,4)
+
+```{r}
+#ARIMA(0,1,1)
+model1 = Arima(ORO$Prezzo,c(0,1,1),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model1), h=30)
+```
+
+
+```{r}
+#ARIMA(1,1,1)
+model2 = Arima(ORO$Prezzo,c(1,1,1),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model2))
+```
+
+```{r}
+#ARIMA(2,1,1)
+model3 = Arima(ORO$Prezzo,c(2,1,1),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model3))
+```
+
+```{r}
+#ARIMA(16,1,1) #CANDIDATO
+model4 = Arima(ORO$Prezzo,c(16,1,1),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model4))
+```
+
+
+```{r}
+#ARIMA(0,1,2)
+model5 = Arima(ORO$Prezzo,c(0,1,2),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model5), h=30)
+```
+
+
+```{r}
+#ARIMA(1,1,2)
+model6 = Arima(ORO$Prezzo,c(1,1,2),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model6))
+```
+
+```{r}
+#ARIMA(2,1,2)
+model7 = Arima(ORO$Prezzo,c(2,1,2),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model7))
+```
+
+```{r}
+#ARIMA(16,1,2) #CANDIDATO
+model8 = Arima(ORO$Prezzo,c(16,1,2),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model8))
+```
+
+```{r}
+#ARIMA(0,1,3)
+model9 = Arima(ORO$Prezzo,c(0,1,3),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model9), h=30)
+```
+
+
+```{r}
+#ARIMA(1,1,3)
+model10 = Arima(ORO$Prezzo,c(1,1,3),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model10))
+```
+
+```{r}
+#ARIMA(2,1,3)
+model11 = Arima(ORO$Prezzo,c(2,1,3),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model11))
+```
+
+```{r}
+#ARIMA(16,1,3) #CANDIDATO
+model12 = Arima(ORO$Prezzo,c(16,1,3),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model12))
+```
+
+```{r}
+#ARIMA(0,1,4)
+model13 = Arima(ORO$Prezzo,c(0,1,4),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model13), h=30)
+```
+
+
+```{r}
+#ARIMA(1,1,4)
+model14 = Arima(ORO$Prezzo,c(1,1,4),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model14))
+```
+
+```{r}
+#ARIMA(2,1,4)
+model15 = Arima(ORO$Prezzo,c(2,1,4),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model15))
+```
+
+```{r}
+#ARIMA(16,1,4) #CANDIDATO
+model16 = Arima(ORO$Prezzo,c(16,1,4),seasonal = NULL,include.mean = T,
+               include.drift = F,
+               include.constant = F,
+               method = "CSS")
+#model1$fitted
+autoplot(forecast(model16))
+```
+
+
+
+
+#questa è roba per controllare
+```{r}
+# Grafico con range personalizzato sull'asse x
+autoplot(model1, h = 3) +
+  xlim(2021, 2024)  # Sostituisci con i limiti desiderati
+
+#
+autoplot(forecast(model1)) +
+  ggtitle("Previsione dei prezzi dell'oro") +
+  xlab("Tempo") +
+  ylab("Prezzo")
+
+
+```
+
+#---------------------------------------------------------------------#
+
+STUDIO DEL TREND E DELLA STAGIONALITA' #da matteo
+
+```{r}
+# Decomposizione della serie temporale usando STL (Seasonal and Trend decomposition using Loess)
+decomposition <- stl(ts_ORO_nondiff, s.window = "periodic")
+
+# Creazione dei grafici
+par(mfrow = c(4, 1), mar = c(4, 4, 2, 1))
+
+# Grafico della serie temporale originale
+plot(ts_ORO_nondiff, main = "Original Time Series for Gold Price", ylab = "Prezzo dell'Oro", col = "blue", lwd = 2)
+
+# Grafico del Trend
+plot(decomposition$time.series[, "trend"], main = "Trend", ylab = "Trend", col = "darkgreen", lwd = 2)
+
+# Grafico della Componente Stagionale
+plot(decomposition$time.series[, "seasonal"], main = "Seasonal", ylab = "Seasonal", col = "purple", lwd = 2)
+
+# Grafico dei Residui
+plot(decomposition$time.series[, "remainder"], main = "Residuals", ylab = "Residuals", col = "red", lwd = 2)
+
+# Ripristina la finestra grafica
+par(mfrow = c(1, 1))
+
+#CONFRONTO TRA GRAFICI
+
+```
+
+
+#---------------------------------------------------------------------#
+
+Dickey-Fuller aumentato (ADF) #bozza
+
+```{r}
+library(ggplot2)
+autoplot(ts_ORO_nondiff)
+
+library(tseries)
+adf.test(ORO$Prezzo)  # Test di stazionarietà (richiede il pacchetto tseries)
+
+```
 
 
 #---------------------------------------------------------------------#
