@@ -1,0 +1,184 @@
+ARIMA MODEL: Previsione del prezzo dell'oro.
+a cura di GECO, per MTBDA 2024/25
+
+Importiamo le librerie necessarie e il dataset:
+
+```{r}
+library(readxl)
+library(forecast)
+library(dplyr)
+library(fpp2)
+library(zoo) #al momento non in uso perché non riuscivo a far girare la funzione zoo
+library(ggplot2)
+library(fpp2)
+
+ORO <- read.csv("C:/Users/famdr/Downloads/amCharts.csv")
+```
+
+Ora passiamo allo step di prepazione dei dati:
+
+```{r}
+# selezioniamo solo le colonne utili
+ORO <- ORO%>%select(Date, close) #selezionate la colonna delle date e la colonna del prezzo di chiusura
+
+# formattiamo la colonna Date di modo che sia riconosciuto che sono date
+ORO$Date <- as.Date(ORO$Date, format = "%Y-%m-%d")
+
+#eliminiamo le righe da prima del 7 Novembre 2021
+ORO <- ORO %>% filter(Date >= as.Date("2021-11-07"))
+
+#rinominiamo la colonna close con il nome "Prezzo"
+names(ORO) <- c("Date", "Prezzo")
+
+# Ordiniamo i dati per data crescente
+ORO <- ORO[order(ORO$Date), ] #per precauzione più che altro perché erano già ordinati
+
+head(ORO) #un controllo veloce dei primi numeri e della classe delle colonne
+```
+
+
+Creaiamo la serie storica di cui vedere l'andamento
+```{r}
+
+# Crea una serie temporale con i dati NON DIFFERENZIATI, frequency = 365 perché sono dati giornalieri, qui f =261 perché mancano sabati, domeniche e festività.
+ts_ORO_nondiff <- ts(ORO$Prezzo, start = c(2021,11), frequency = 261)  ##DA SISTEMARE!##
+plot(ts_ORO_nondiff, main = "Serie Storica prezzo dell'oro", ylab = "Prezzo", xlab = "Tempo")
+
+
+#volevo usare ggplot cercando di sistemare l'asse del tempo e metterle glli anni come date e non dati numero, non ci riesco e il comnado non gira proprio lol
+ggplot(data = ts_ORO_nondiff, aes(x = "Data", y = "Prezzo")) +
+  geom_line(color = "blue") +
+  labs(title = "Serie Storica prezzo dell'oro", 
+       x = "Tempo", 
+       y = "Prezzo") +
+  theme_minimal()
+
+```
+
+
+Differenziamo la serie storica:
+```{r}
+ts_ORO <- diff(ts_ORO_nondiff, differences = 1)
+plot(ts_ORO, main = "Serie Storica Differenziata 1 volta", ylab = "Prezzo", xlab = "Tempo")
+```
+
+
+Andiamo a fare l'Autocorrelation: [USIAMO LA SERIE NON DIFFERENZIATA!]
+
+```{r}
+#Autocorrelazione ci serve per trovare il parametro q (ossia l'ordine della media mobile) : ACF decresce rapidamente MA basso, se lentamente invece sappiamo che la serie propbabilmente non è stazionaria (come nel nostro caso). [il "probabilmente" viene da Chatgpt, comunque abbiamo anche verificato dal grafico della serie storica che non è stazionario].
+
+#Autocorrelazione totale
+acf(ts_ORO_nondiff, ylab = "ACF", xlab = "lag") #esce un grafico che non mi piace troppo
+
+#rifacciamo il grafico acf con ggplot che viene più carino
+acf_data <- acf(ts_ORO_nondiff, plot = FALSE)
+df_acf <- data.frame(Lag = acf_data$lag, ACF = acf_data$acf) # Trasforma i dati in un dataframe
+ggplot(df_acf, aes(x = Lag, y = ACF)) +
+  geom_bar(stat = "identity", fill = "darkred", alpha = 0.7) +
+  labs(title = "Autocorrelazione", x = "Lag", y = "ACF")
+
+#Dal grafico possiamo vedere come il valore decresca lentamente: è necessario differeziare la serie. Ancora non sappiamo quale q scegliere.
+```
+
+Vediamo l'Autocorrelazione Parziale (ancora non diff) - è utile? Penso a questo punto di no.
+ 
+```{r}
+#Serve a trovare il valore di p, ossia l'ordine autoregressivo (?)
+
+pacf(ts_ORO_nondiff, ylab = "PACF", xlab = "lag", plot = TRUE)
+
+#Altro modo di disegnarla che però non gira
+pacf_data <- pacf(ts_ORO_nondiff, ylab = "PACF", xlab = "lag", plot = TRUE)
+df_pacf <- data.frame(Lag = pacf_data$lag, PACF = pacf_data$pacf) # Trasforma i dati in un dataframe
+ggplot(df_pacf, aes(x = Lag, y = "PACF")) +
+  geom_bar(stat = "identity", fill = "darkgreen", alpha = 0.7) +
+  labs(title = "Autocorrelazione Parziale", x = "Lag", y = "PACF")
+
+#Se la serie fosse già stazionaria avremmo p = 1 perché sul grafico c'è un picco al valore 1.
+###Per noi però questo valore di p non è affidabile perché la serie non è stazionaria (ora la diff per renderla stazionaria, considereremo p calcolato con il PACF sulla serie resa stazionaria!)##
+```
+
+VEDIAMO ACF E PACF DIFFERENZIATI:
+```{r}
+#Autocorrelazione totale
+acf(ts_ORO, ylab = "ACF", xlab = "lag") #esce un grafico che non mi piace troppo
+
+#rifacciamo il grafico acf con ggplot che viene più carino
+acf_data <- acf(ts_ORO, plot = FALSE)
+df_acf <- data.frame(Lag = acf_data$lag, ACF = acf_data$acf) # Trasforma i dati in un dataframe
+ggplot(df_acf, aes(x = Lag, y = ACF)) +
+  geom_bar(stat = "identity", fill = "darkblue", alpha = 0.7) +
+  labs(title = "Autocorrelazione differenziata 1 volta", x = "Lag", y = "ACF")
+
+
+#Poiché decresce velocemente la serie è stazionaria con una sola differenziazione: d = 1 (abbiamo un picco in 1)
+```
+
+```{r}
+#PACF con i dati differenziati
+pacf(ts_ORO, ylab = "PACF", xlab = "lag", plot = TRUE)
+
+#notiamo dei picchi (positivi e negativi) in 1, 2, 16
+#il resto dei valori sembra rimanere di "molto" all'interno della fascia del rumore di fondo
+
+```
+
+RECAP:
+
+ARIMA(p,d,q)
+
+#P
+p: andiamo a vdere i picchi significativi nel grafico del PACF della serie resa stazionaria:
+p=1
+p=2
+p=16
+
+(1,d,q)
+(2,d,q)
+(16,d,q)
+ 
+questi sono valori di p per cui andare a fare dei confronti (eventualmente)
+
+#D
+d: abbiamo differenziato una sola volta per rendere la serie stazionaria
+d=1
+
+(p,1,q)
+
+#Q
+q: CI STAVAMO RAGIONANDO QUANDO CI SIAMO STACCATI
+
+
+#---------------------------------------------------------------------#
+
+```{r}
+Dal codice di Sara:
+# Adatta il modello ARIMA
+fit <- auto.arima(ts_data)
+summary(fit)
+
+# Previsione
+forecast_values <- forecast(fit, h = 30)  # Previsione per i prossimi 30 giorni
+plot(forecast_values, main = "Previsione del prezzo dell'oro")
+```
+
+#---------------------------------------------------------------------#
+
+CONTROLLO DELLA BONTA' DEL MODELLO
+
+```{r}
+#si prende il valore minimo di aikage e bic
+LL, BIC, AIC
+```
+
+Andiamo a calcolare LL: LogLikehod
+```{r}
+library(forecast)
+
+# Fit di un modello ARIMA
+modello <- arima(ts_oro, order = c(1, 1, 1))
+
+# Calcolo del log-likelihood
+log_likelihood <- logLik(modello)
+print(log_likelihood)
