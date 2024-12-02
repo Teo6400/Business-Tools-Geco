@@ -1,0 +1,550 @@
+```{r}
+# Caricare il dataset
+diamonds <- read.csv("C:/Users/sara1/Downloads/diamonds.csv/diamonds.csv")
+
+# Pulizia dei dati: rimuovere righe con dimensioni non plausibili. Rimuovere le righe che contengono valori non plausibili (dimensioni pari a 0 per le dimensioni x, y, z).
+diamonds_cleaned <- subset(diamonds, x > 0 & y > 0 & z > 0)
+
+# Selezionare solo le colonne numeriche per la normalizzazione (carat, depth,price, e dimensioni (x, y, z)). 
+numerical_columns <- c("carat", "depth", "table", "price", "x", "y", "z")
+diamonds_numeric <- diamonds_cleaned[, numerical_columns]
+
+# Normalizzazione (scalare i dati tra 0 e 1) per garantire che tutte le variabili abbiano lo stesso peso nel clustering.
+diamonds_scaled <- as.data.frame(scale(diamonds_numeric))
+
+# Libreria necessaria
+if (!require("ggplot2")) install.packages("ggplot2", dependencies = TRUE)
+
+# Campionamento casuale per ridurre il numero di righe nel dataset. DA VEDERE BENE QUESTA COSA
+set.seed(42)
+sample_size <- 10000  # Riduci la dimensione del campione se il dataset è molto grande
+diamonds_sample <- diamonds_scaled[sample(1:nrow(diamonds_scaled), sample_size), ]
+
+```
+
+
+```{r}
+# Metodo del Gomito - Calcolo dell'inertia per diversi valori di k
+wss <- numeric()  # Per memorizzare l'inertia
+max_k <- 10  # Numero massimo di cluster da testare
+
+for (k in 1:max_k) {
+  kmeans_result <- kmeans(diamonds_sample, centers = k, nstart = 10, iter.max = 1000)
+  wss[k] <- kmeans_result$tot.withinss  # Somma dei quadrati interni
+}
+
+# Grafico del metodo del gomito
+elbow_plot <- data.frame(k = 1:max_k, wss = wss)
+
+ggplot(elbow_plot, aes(x = k, y = wss)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red") +
+  labs(
+    title = "Metodo del Gomito per trovare il numero ottimale di cluster",
+    x = "Numero di Cluster (k)",
+    y = "Somma dei quadrati interni (Inertia)"
+  ) +
+  theme_minimal()
+```
+```{r}
+# K-means con k = 3 sul campione
+kmeans_result <- kmeans(diamonds_sample, centers = 3, nstart = 10, iter.max = 1000)
+
+# Aggiungere i cluster al dataset di campione
+diamonds_sample$cluster <- as.factor(kmeans_result$cluster)
+```
+
+```{r}
+# Visualizzazione dei cluster con PCA. La PCA riduce la dimensionalità dei dati mantenendo la maggior parte della varianza. In questo caso, si calcolano le prime due componenti principali (PC1 e PC2). I cluster sono poi visualizzati in un grafico 2D basato su PC1 e PC2.
+pca_result <- prcomp(diamonds_sample[, -ncol(diamonds_sample)], scale = TRUE)
+
+# Preparare i dati per il grafico
+pca_data <- data.frame(
+  PC1 = pca_result$x[, 1],
+  PC2 = pca_result$x[, 2],
+  cluster = diamonds_sample$cluster
+)
+```
+
+```{r}
+# Grafico dei cluster
+ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(
+    title = "Clusterizzazione K-means con k = 3 (Sottoinsieme dei dati)",
+    x = "Prima Componente Principale (PC1)",
+    y = "Seconda Componente Principale (PC2)"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")
+```
+
+```{r}
+# Analizzare la PCA (varianza spiegata dalle componenti principali)
+# 1. Componenti principali (direzioni)
+cat("Componenti principali (direzioni):\n")
+print(pca_result$rotation)  # Le "direzioni" delle componenti principali (coefficiente per ogni variabile)
+# 2. Varianza spiegata da ciascuna componente
+explained_variance <- pca_result$sdev^2  # Varianza spiegata
+explained_variance_ratio <- explained_variance / sum(explained_variance)  # Percentuale di varianza spiegata
+
+cat("\nVarianza spiegata dalle componenti principali:\n")
+print(explained_variance)
+cat("\nVarianza spiegata in percentuale (ogni componente):\n")
+print(explained_variance_ratio)
+
+# 3. Le prime due componenti principali (PC1 e PC2)
+cat("\nCoefficiente della prima componente principale (PC1):\n")
+print(pca_result$rotation[, 1])  # Coefficienti di PC1
+cat("\nCoefficiente della seconda componente principale (PC2):\n")
+print(pca_result$rotation[, 2])  # Coefficienti di PC2
+
+# 4. Varianza spiegata dalle prime due componenti
+cat("\nVarianza spiegata da PC1:", explained_variance_ratio[1], "\n")
+cat("\nVarianza spiegata da PC2:", explained_variance_ratio[2], "\n")
+
+```
+```{r}
+
+# Funzione per visualizzare la distribuzione dei cluster in base a carat e price
+visualizza_cluster <- function(data) {
+  # Controlla se la colonna 'cluster' esiste nel dataset
+  if(!"cluster" %in% colnames(data)) {
+    stop("La colonna 'cluster' non esiste nel dataset.")
+  }
+  
+  # Creazione del grafico con ggplot2
+  ggplot(data, aes(x = carat, y = price, color = cluster)) +
+    geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+    labs(
+      title = "Distribuzione dei Cluster (carat vs price)",
+      x = "Carato (carat)",
+      y = "Prezzo (price)"
+    ) +
+    theme_minimal() +
+    scale_color_brewer(palette = "Set1")  # Colori dei cluster
+}
+
+# Esegui la funzione con il tuo dataset
+visualizza_cluster(diamonds_sample)
+```
+
+```{r}
+
+# Funzione per visualizzare la distribuzione dei cluster in base a carat e price, con un grafico per cluster
+visualizza_cluster_separati <- function(data) {
+  # Controlla se la colonna 'cluster' esiste nel dataset
+  if(!"cluster" %in% colnames(data)) {
+    stop("La colonna 'cluster' non esiste nel dataset.")
+  }
+  
+  # Creazione del grafico con ggplot2
+  ggplot(data, aes(x = carat, y = price, color = cluster)) +
+    geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+    labs(
+      title = "Distribuzione dei Cluster (carat vs price)",
+      x = "Carato (carat)",
+      y = "Prezzo (price)"
+    ) +
+    theme_minimal() +
+    scale_color_brewer(palette = "Set1") +  # Colori dei cluster
+    facet_wrap(~cluster)  # Suddividi il grafico per cluster
+}
+
+# Esegui la funzione con il tuo dataset
+visualizza_cluster_separati(diamonds_sample)
+
+```
+```{r}
+# Installa e carica il pacchetto GGally se non è già installato
+if (!require("GGally")) install.packages("GGally", dependencies = TRUE)
+library(GGally)
+
+# Applicare ggcorr al dataset diamonds_sample
+ggcorr(diamonds_sample[, c("carat", "depth", "table", "price", "x", "y", "z")], label = TRUE)
+```
+```{r}
+# Installa i pacchetti se non sono già installati
+if (!require("ggcorrplot")) install.packages("ggcorrplot", dependencies = TRUE)
+library(ggcorrplot)
+
+# Calcolare la matrice di correlazione del dataset
+cor_matrix <- cor(diamonds_sample[, c("carat", "depth", "table", "price", "x", "y", "z")])
+
+# Creare una heatmap migliorata con ggcorrplot
+ggcorrplot(cor_matrix, 
+           lab = TRUE,  # Aggiungi i valori di correlazione
+           method = "square",  # Usa i quadrati per visualizzare la correlazione
+           colors = c("#B2182B", "white", "#2166AC"),  # Palette personalizzata
+           title = "Matrice di Correlazione tra le Variabili del Diamante",
+           ggtheme = theme_minimal() + theme(
+               plot.title = element_text(size = 18, face = "bold", hjust = 0.5),  # Titolo centrato e in grassetto
+               axis.text.x = element_text(size = 12, angle = 45, hjust = 1),  # Ruotare le etichette sull'asse x
+               axis.text.y = element_text(size = 12),  # Etichette sull'asse y
+               panel.grid = element_blank(),  # Rimuove la griglia di sfondo
+               plot.margin = margin(10, 10, 10, 10)  # Aggiunge margini al grafico
+           )) +
+  theme(
+    plot.background = element_rect(fill = "transparent", color = NA),  # Sfondo trasparente
+    legend.position = "bottom",  # Posiziona la legenda sotto il grafico
+    legend.title = element_blank()  # Rimuove il titolo della legenda
+  )
+```
+```{r}
+# Funzione per eseguire il clustering K-means
+esegui_clustering_kmeans <- function(diamonds_subset) {
+  # Normalizza i dati
+  diamonds_subset_scaled <- scale(diamonds_subset)
+  
+  # Esegui clustering K-means con k=3
+  set.seed(100)
+  diamonds_cluster <- kmeans(diamonds_subset_scaled, centers = 2)
+  
+  # Aggiungi i cluster al dataset
+  diamonds_subset$cluster <- diamonds_cluster$cluster
+  
+  # Visualizza i risultati del clustering
+  library(factoextra)
+  fviz_cluster(diamonds_cluster, data = diamonds_subset_scaled)  
+}
+
+# Creazione del sottoinsieme del dataset con solo variabili numeriche
+diamonds_subset <- diamonds[, c("carat", "depth", "table", "price", "x", "y", "z")]
+
+# Esegui il clustering K-means
+esegui_clustering_kmeans(diamonds_subset)
+
+```
+```{r}
+# Visualizzare la varianza spiegata
+if (!require("factoextra")) install.packages("factoextra", dependencies = TRUE)
+library(factoextra)
+
+fviz_eig(pca_result, 
+         addlabels = TRUE,         # Aggiunge le etichette con i valori di varianza
+         barfill = "#2E9FDF",      # Colore delle barre
+         barcolor = "#2E9FDF") +   # Bordo delle barre
+  labs(
+    title = "Varianza Spiegata da ciascun Componente Principale",
+    x = "Componenti Principali",
+    y = "Varianza Spiegata (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  # Centra il titolo
+    axis.title = element_text(size = 12),                              # Dimensione dei titoli degli assi
+    axis.text = element_text(size = 10)                                # Dimensione dei valori sugli assi
+  )
+
+```
+```{r}
+# Visualizzare il contributo delle variabili ai componenti principali
+fviz_pca_var(pca_result, 
+             col.var = "contrib",   # Usa un gradiente di colore per indicare il contributo
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),  # Gradiente personalizzato
+             repel = TRUE) +        # Evita sovrapposizioni delle etichette
+  labs(
+    title = "Contributo delle Variabili ai Componenti Principali",
+    x = "Prima Componente Principale (PC1)",
+    y = "Seconda Componente Principale (PC2)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  # Centra il titolo
+    axis.title = element_text(size = 12),                              # Dimensione dei titoli degli assi
+    axis.text = element_text(size = 10)                                # Dimensione dei valori sugli assi
+  )
+
+```
+```{r}
+# Funzione per visualizzare i centroidi nei cluster
+visualizza_centroidi <- function(data, kmeans_result) {
+  # Controlla se la colonna 'cluster' esiste nel dataset
+  if(!"cluster" %in% colnames(data)) {
+    stop("La colonna 'cluster' non esiste nel dataset.")
+  }
+  
+  # Aggiungere i centroidi al dataframe (dati dei centroidi)
+  centroids <- as.data.frame(kmeans_result$centers)
+  centroids$cluster <- as.factor(1:nrow(centroids))
+  
+  # Creazione del grafico con ggplot2
+  ggplot(data, aes(x = carat, y = price, color = cluster)) +
+    geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+    geom_point(data = centroids, aes(x = carat, y = price), 
+               color = "black", shape = 4, size = 5, stroke = 2) +  # Centroidi
+    labs(
+      title = "Distribuzione dei Cluster con Centroidi (carat vs price)",
+      x = "Carato (carat)",
+      y = "Prezzo (price)"
+    ) +
+    theme_minimal() +
+    scale_color_brewer(palette = "Set1") +  # Colori dei cluster
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  # Centra il titolo
+      axis.title = element_text(size = 12),                              # Dimensione dei titoli degli assi
+      axis.text = element_text(size = 10)                                # Dimensione dei valori sugli assi
+    )
+}
+
+# Esegui il clustering K-means con k=3
+kmeans_result <- kmeans(diamonds_sample[, c("carat", "price")], centers = 3, nstart = 10)
+
+# Aggiungere i cluster al dataset
+diamonds_sample$cluster <- as.factor(kmeans_result$cluster)
+
+# Esegui la funzione con il tuo dataset
+visualizza_centroidi(diamonds_sample, kmeans_result)
+
+```
+```{r}
+# Carica il dataset
+diamonds <- read.csv("C:/Users/sara1/Downloads/diamonds.csv/diamonds.csv")
+
+# Pulizia dei dati: rimuovi righe con dimensioni non plausibili
+diamonds_cleaned <- subset(diamonds, x > 0 & y > 0 & z > 0)
+
+# Seleziona solo le colonne numeriche per il clustering (carat, depth, price, e dimensioni (x, y, z))
+numerical_columns <- c("carat", "depth", "table", "price", "x", "y", "z")
+diamonds_subset <- diamonds_cleaned[, numerical_columns]
+
+```
+```{r}
+# Esegui il clustering K-means con k = 3 (senza normalizzazione)
+set.seed(42)  # Impostare il seme per la riproducibilità
+kmeans_result <- kmeans(diamonds_subset, centers = 3, nstart = 10)
+
+# Aggiungere i cluster al dataset
+diamonds_subset$cluster <- as.factor(kmeans_result$cluster)
+
+```
+```{r}
+# Visualizza i centroidi dei cluster
+centroids <- as.data.frame(kmeans_result$centers)
+names(centroids) <- c("carat", "depth", "table", "price", "x", "y", "z")
+
+# Aggiungi i centroidi al dataset per il grafico
+ggplot(diamonds_subset, aes(x = carat, y = price, color = cluster)) +
+  geom_point(alpha = 0.6, size = 2) +  # Punti del clustering
+  geom_point(data = centroids, aes(x = carat, y = price), color = "black", size = 5, shape = 8) +  # Centroidi
+  labs(
+    title = "Distribuzione dei Cluster (carat vs price) con Centroidi",
+    x = "Carato (carat)",
+    y = "Prezzo (price)"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")  # Colori dei cluster
+
+```
+```{r}
+# Visualizzare la distribuzione dei cluster separati per carat e price
+ggplot(diamonds_subset, aes(x = carat, y = price, color = cluster)) +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(
+    title = "Distribuzione dei Cluster (carat vs price)",
+    x = "Carato (carat)",
+    y = "Prezzo (price)"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1") +  # Colori dei cluster
+  facet_wrap(~cluster)  # Suddividi il grafico per cluster
+
+```
+```{r}
+# Visualizza i cluster nel piano delle componenti principali (PC1 vs PC2)
+ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(
+    title = "Clusterizzazione K-means (PCA - PC1 vs PC2)",
+    x = "Prima Componente Principale (PC1)",
+    y = "Seconda Componente Principale (PC2)"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")
+
+```
+```{r}
+# Varianza spiegata dalle componenti principali
+explained_variance <- pca_result$sdev^2  # Varianza spiegata
+explained_variance_ratio <- explained_variance / sum(explained_variance)  # Percentuale di varianza spiegata
+
+cat("\nVarianza spiegata dalle componenti principali:\n")
+print(explained_variance)
+cat("\nVarianza spiegata in percentuale (ogni componente):\n")
+print(explained_variance_ratio)
+
+# Varianza spiegata dalle prime due componenti
+cat("\nVarianza spiegata da PC1:", explained_variance_ratio[1], "\n")
+cat("\nVarianza spiegata da PC2:", explained_variance_ratio[2], "\n")
+
+```
+```{r}
+# Caricare il dataset
+diamonds <- read.csv("C:/Users/sara1/Downloads/diamonds.csv/diamonds.csv")
+
+# Pulizia dei dati: rimuovere righe con dimensioni non plausibili.
+diamonds_cleaned <- subset(diamonds, x > 0 & y > 0 & z > 0)
+
+# Selezionare solo le colonne numeriche per la normalizzazione
+numerical_columns <- c("carat", "depth", "table", "price", "x", "y", "z")
+diamonds_numeric <- diamonds_cleaned[, numerical_columns]
+
+# Normalizzazione del dataset
+diamonds_scaled <- as.data.frame(scale(diamonds_numeric))
+
+# Esegui K-means con 3 cluster
+set.seed(100)
+kmeans_result <- kmeans(diamonds_scaled, centers = 3)
+
+# Aggiungi i cluster al dataset
+diamonds_cleaned$cluster <- as.factor(kmeans_result$cluster)
+
+# Visualizza i centroidi (valori medi dei cluster)
+centroids <- kmeans_result$centers
+cat("Centroidi dei cluster (valori normalizzati):\n")
+print(centroids)
+
+# Riconversione del prezzo normalizzato per ciascun cluster (solo per i centroidi)
+# Calcola la media e la deviazione standard del prezzo originale
+mu <- mean(diamonds$price, na.rm = TRUE)
+sigma <- sd(diamonds$price, na.rm = TRUE)
+
+# Riconvertire solo i prezzi associati ai centroidi (per cluster)
+reconverted_prices <- centroids[, "price"] * sigma + mu
+cat("\nPrezzi riconvertiti (per i centroidi):\n")
+print(reconverted_prices)
+
+# Visualizzazione della distribuzione dei cluster
+library(ggplot2)
+ggplot(diamonds_cleaned, aes(x = carat, y = price, color = cluster)) +
+  geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+  labs(
+    title = "Distribuzione dei Cluster (carat vs price)",
+    x = "Carato (carat)",
+    y = "Prezzo (price)"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")  # Colori dei cluster
+
+```
+```{r}
+# Caricare il dataset
+diamonds <- read.csv("C:/Users/sara1/Downloads/diamonds.csv/diamonds.csv")
+
+# Pulizia dei dati: rimuovere righe con dimensioni non plausibili.
+diamonds_cleaned <- subset(diamonds, x > 0 & y > 0 & z > 0)
+
+# Selezionare solo le colonne numeriche per la normalizzazione
+numerical_columns <- c("carat", "depth", "table", "price", "x", "y", "z")
+diamonds_numeric <- diamonds_cleaned[, numerical_columns]
+
+# Normalizzazione del dataset
+diamonds_scaled <- as.data.frame(scale(diamonds_numeric))
+
+# Esegui K-means con 3 cluster
+set.seed(100)
+kmeans_result <- kmeans(diamonds_scaled, centers = 3)
+
+# Aggiungi i cluster al dataset
+diamonds_cleaned$cluster <- as.factor(kmeans_result$cluster)
+
+# Visualizza i centroidi (valori medi dei cluster) dei dati normalizzati
+centroids <- kmeans_result$centers
+cat("Centroidi dei cluster (valori normalizzati):\n")
+print(centroids)
+
+# Riconversione del prezzo normalizzato per ciascun cluster (solo per i centroidi)
+# Calcola la media e la deviazione standard del prezzo originale
+mu <- mean(diamonds$price, na.rm = TRUE)
+sigma <- sd(diamonds$price, na.rm = TRUE)
+
+# Riconvertire solo i prezzi associati ai centroidi (per cluster)
+reconverted_prices <- centroids[, "price"] * sigma + mu
+cat("\nPrezzi riconvertiti (per i centroidi):\n")
+print(reconverted_prices)
+
+# Riconversione dei carati normalizzati per ciascun cluster (solo per i centroidi)
+mu_carat <- mean(diamonds$carat, na.rm = TRUE)
+sigma_carat <- sd(diamonds$carat, na.rm = TRUE)
+
+# Riconvertire i carati associati ai centroidi
+reconverted_carats <- centroids[, "carat"] * sigma_carat + mu_carat
+cat("\nCarati riconvertiti (per i centroidi):\n")
+print(reconverted_carats)
+
+# Visualizzazione della distribuzione dei cluster
+library(ggplot2)
+ggplot(diamonds_cleaned, aes(x = carat, y = price, color = cluster)) +
+  geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+  labs(
+    title = "Distribuzione dei Cluster (carat vs price)",
+    x = "Carato (carat)",
+    y = "Prezzo (price)"
+  ) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")  # Colori dei cluster
+
+```
+```{r}
+# Funzione per calcolare le coordinate dei cluster in base a carat e price
+calcola_coordinate_cluster <- function(data, clusters) {
+  # Assicurati che la colonna 'cluster' esista nel dataset
+  if (!"cluster" %in% colnames(data)) {
+    stop("La colonna 'cluster' non esiste nel dataset.")
+  }
+  
+  # Aggiungi la colonna 'cluster' al dataset
+  data$cluster <- clusters
+  
+  # Calcolare le coordinate medie (centrali) per ciascun cluster
+  coordinate_cluster <- aggregate(cbind(carat, price) ~ cluster, data = data, FUN = mean)
+  
+  return(coordinate_cluster)
+}
+
+# Esegui la funzione con il tuo dataset e i cluster calcolati
+coordinate_cluster <- calcola_coordinate_cluster(diamonds_sample, diamonds_sample$cluster)
+
+# Mostra le coordinate dei cluster
+print(coordinate_cluster)
+
+```
+```{r}
+# Funzione per calcolare le coordinate dei cluster in base a carat e price (non normalizzati)
+calcola_coordinate_cluster_originali <- function(data, clusters, data_originale) {
+  # Assicurati che la colonna 'cluster' esista nel dataset
+  if (!"cluster" %in% colnames(data)) {
+    stop("La colonna 'cluster' non esiste nel dataset.")
+  }
+  
+  # Aggiungi la colonna 'cluster' al dataset
+  data$cluster <- clusters
+  
+  # Calcolare le coordinate medie per ciascun cluster nel dataset normalizzato
+  coordinate_cluster_normalizzate <- aggregate(cbind(carat, price) ~ cluster, data = data, FUN = mean)
+  
+  # Recupera le statistiche di normalizzazione per 'carat' e 'price' (media e deviazione standard)
+  mean_carat <- mean(data_originale$carat)
+  sd_carat <- sd(data_originale$carat)
+  mean_price <- mean(data_originale$price)
+  sd_price <- sd(data_originale$price)
+  
+  # Converti i valori normalizzati nelle coordinate originali
+  coordinate_cluster_originali <- coordinate_cluster_normalizzate
+  coordinate_cluster_originali$carat <- coordinate_cluster_normalizzate$carat * sd_carat + mean_carat
+  coordinate_cluster_originali$price <- coordinate_cluster_normalizzate$price * sd_price + mean_price
+  
+  return(coordinate_cluster_originali)
+}
+
+# Esegui la funzione con il tuo dataset normalizzato, i cluster e il dataset originale
+coordinate_cluster_originali <- calcola_coordinate_cluster_originali(diamonds_sample, diamonds_sample$cluster, diamonds)
+
+# Mostra le coordinate dei cluster (in termini originali)
+print(coordinate_cluster_originali)
+
+```
+
+
+
+
