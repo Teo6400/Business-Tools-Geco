@@ -1,7 +1,7 @@
-ARIMA MODEL: Previsione del prezzo dell'oro.
-a cura di GECO, per MTBDA 2024/25
+#ARIMA MODEL: Previsione del prezzo dell'Gold.  
+#a cura di GECO, per MTBDA 2024/25
 
-Importiamo le librerie necessarie e il dataset:
+#Importiamo le librerie necessarie e il dataset:
 
 ```{r}
 library(readxl)
@@ -13,54 +13,54 @@ library(ggplot2)
 library(fpp2)
 library(lubridate)
 library(stats) #se necessaria (magari nella ciclicità? al momento non c'è nulla che la usa)
+library(tseries)
 
-ORO <- read.csv("C:/Users/famdr/Downloads/amCharts.csv")
+Gold <- read.csv("C:/Users/famdr/Downloads/amCharts.csv")
 ```
 
-Ora passiamo allo step di prepazione del dataset:
+#Ora passiamo allo step di prepazione del dataset:
 
 ```{r}
 # selezioniamo solo le colonne utili
-ORO <- ORO%>%select(Date, close) #selezionate la colonna delle date e la colonna del prezzo di chiusura
+Gold <- Gold%>%select(Date, close) #selezionate la colonna delle date e la colonna del prezzo di chiusura
 
-# formattiamo la colonna Date di modo che sia riconosciuto che sono date
-ORO$Date <- as.Date(ORO$Date, format = "%Y-%m-%d")
+# formattiamo la colonna Date di modo che sia riconosciuto che sono date                          
+Gold$Date <- as.Date(Gold$Date, format = "%Y-%m-%d")
 
 #eliminiamo le righe da prima del 20 Novembre 2014
-ORO <- ORO %>% filter(Date >= as.Date("2014-11-20"))
+Gold <- Gold %>% filter(Date >= as.Date("2014-11-20"))
 
-#rinominiamo la colonna close con il nome "Prezzo"
-names(ORO) <- c("Date", "Prezzo")
+#rinominiamo la colonna close con il nome "Price"
+names(Gold) <- c("Date", "Price")
 
 # Ordiniamo i dati per data crescente
-ORO <- ORO[order(ORO$Date), ] #per precauzione più che altro perché erano già ordinati
+Gold <- Gold[order(Gold$Date), ] #per precauzione più che altro perché erano già ordinati
 
-head(ORO) #un controllo veloce dei primi numeri e della classe delle colonne
+head(Gold) #un controllo veloce dei primi numeri e della classe delle colonne
 ```
 
 
-Creaiamo la serie storica di cui vedere l'andamento
+#Creaiamo la serie storica di cui vedere l'andamento
 ```{r}
 
 # Crea una serie temporale con i dati NON DIFFERENZIATI, frequency = 365 perché sono dati giornalieri, qui f =260 perché mancano sabati, domeniche e festività.
-ts_ORO_originale <- ts(ORO$Prezzo, start = c(2014), frequency = 260)
-plot(ts_ORO_originale, main = "Serie Storica prezzo dell'oro", ylab = "Prezzo", xlab = "Tempo", col = "black")
+ts_Gold_original <- ts(Gold$Price, start = c(2014), frequency = 260)
+plot(ts_Gold_original, main = "Gold Time Series", ylab = "Price", xlab = "Time", col = "black")
 ```
-
 
 Andiamo a studiare Trend, Stagionalità e Residui:
 ```{r}
 # Decomposizione della serie temporale usando STL (Seasonal and Trend decomposition using Loess)
-decomposition <- stl(ts_ORO_originale, s.window = "periodic", robust=T)
+decomposition <- stl(ts_Gold_original, s.window = "periodic", robust=T)
 
 #Serve per plottare i grafici uno sotto l'altro e ridurre la finestra grafica
-  # comando originale di matteo a benedetta non gira
+  # comando original di matteo a benedetta non gira
     par(mfrow = c(4, 1), mar = c(4, 4, 2, 1))
   # comando che fa girare a benedetta
     par(mfrow = c(4, 1), mar = c(2, 4, 2, 1)) 
 
-# Grafico della serie temporale originale
-plot(ts_ORO_originale, main = "Original Time Series for Gold Price", ylab = "Prezzo dell'Oro", col = "blue", lwd = 2)
+# Grafico della serie temporale original
+plot(ts_Gold_original, main = "Gold Time Series Original", ylab = "Gold Price", col = "blue", lwd = 2)
 
 # Grafico del Trend
 plot(decomposition$time.series[, "trend"], main = "Trend", ylab = "Trend", col = "darkgreen", lwd = 2)
@@ -77,12 +77,7 @@ plot(decomposition$time.series[, "remainder"], main = "Residuals",
 lines(x = c(1, length(decomposition$time.series[, "remainder"])), 
       y = c(0, 0), col = "black", lty = 2, lwd = 1) # Linea orizzontale tratteggiata per y=0.
 
-#ANCORA DA ULTIMARE LE MODIFICHE NEI GRAFICI. 
-#la funzione lines gira bene solo se la si runna insieme al plot, da sola non gira su Rnotebook ma gira (da sola) su Rscript.
-
-#comando del prof per decomporre la serie 
-#----gira bene su Rnotebook, meno bello però intanto plotta tutto insieme se abbiamo problemi a visualizzare----#
-ts_ORO_originale %>% stl(s.window="periodic", robust=T) %>% autoplot()
+#ts_Gold_original %>% stl(s.window="periodic", robust=T) %>% autoplot()
 
 
 # Ripristina le impostazioni grafiche di default (opzionale)
@@ -99,14 +94,6 @@ residuals <- decomposition$time.series[, "remainder"]
 
 Gaussiana dei Residui
 ```{r}
-# Istogramma dei residui
-ggplot(data = data.frame(residuals), aes(x = residuals)) +
-  geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.6) +
-  labs(title = "Residuals Histogram", x = "Residuals", y = "Relative Frequency") +
-  theme_minimal()
-
-##sopra il grafico aggiungiamo la linea della distribuzione Gaussiana:
-
 # Calcolo della media e della deviazione standard dei residui
 mean_residuals <- mean(residuals, na.rm = TRUE)
 sd_residuals <- sd(residuals, na.rm = TRUE)
@@ -130,71 +117,54 @@ par(mfrow = c(1, 1))  # Reset della disposizione dei grafici
 qqnorm(residuals, main = "Q-Q Plot of Residuals", col = "blue")
 qqline(residuals, col = "red", lwd = 2)  # Aggiunge la linea di riferimento
 
-#qqline non funziona se la plotti separatamente dalla linea qqnorm
+#qqline non funziona se la plotti separatamente dalla linea qqnorm nel notebook
 ```
 
-ACF dei Residui:
+#ACF dei Residui: ##Qualcuno può runnare questo e dirmi se vede il titolo per favore?
 ```{r}
-acf(residuals, main = "ACF Plot of Residuals", col = "blue", lwd = 2)
+#acf(residuals, col = "blue", lwd = 2, main = "ACF Plot of Residuals")
 #possiamo vedere che il grafico indica ancora la presenza di autocorrelazione. La decomposizione quindi non sembra sia riuscita bene a catturare tutti i pattern della serie storica e i residui non sono rumore di fondo, sono ancora rilevanti.
 ```
 
 
 
-Andiamo a studiare la STAZIONARIETA' della serie storica:
+#Andiamo a studiare la STAZIONARIETA' della serie storica:
 
 Autocorrelazione:
 ```{r}
 #Autocorrelazione ci serve per trovare il parametro q (ossia l'ordine della media mobile) : ACF decresce rapidamente MA basso, se lentamente invece sappiamo che la serie propbabilmente non è stazionaria (come nel nostro caso). [il "probabilmente" viene da Chatgpt, comunque abbiamo anche verificato dal grafico della serie storica che non è stazionario].
 
-#Autocorrelazione serie storica originale
-acf_data <- acf(ts_ORO_originale, plot = TRUE)   #HO CAMBIATO IL COLORE in nero (funzione lwd per aumentare gli spessori)
-df_acf <- data.frame(Lag = acf_data$lag, ACF = acf_data$acf) # Trasforma i dati in un dataframe
-
-ggplot(df_acf, aes(x = Lag, y = ACF)) +
-  geom_bar(stat = "identity", fill = "darkred", alpha = 0.7) +
-  labs(title = "Autocorrelazione", x = "Lag", y = "ACF")
+#Autocorrelazione serie storica original
+acf_data <- acf(ts_Gold_original, plot = TRUE) 
 
 #Dal grafico possiamo vedere come il valore decresca lentamente: è necessario differeziare almeno una volta la serie per renderla stazionaria.
 ```
 
-Non vediamo l'Autocorrelazione Parziale PACF della serie non differenziata perché non è stazionaria, quindi non ci fornisce informazioni utili.
+#Non vediamo l'Autocorrelazione Parziale PACF della serie non differenziata perché non è stazionaria, quindi non ci fornisce informazioni utili.
 
 
 
-Differenziamo 1 volta la serie storica:
+#Differenziamo 1 volta la serie storica:
 ```{r}
-ts_ORO_diff <- diff(ts_ORO_originale, differences = 1)
-plot(ts_ORO_diff, main = "Serie Storica Differenziata 1 volta", ylab = "Prezzo", xlab = "Tempo")
+ts_Gold_diff <- diff(ts_Gold_original, differences = 1)
+plot(ts_Gold_diff, main = "Gold Time Series 1 time differenciated", ylab = "Price", xlab = "Time")
 ```
 
 
 VEDIAMO ACF E PACF DIFFERENZIATI:
 ```{r}
 #Autocorrelazione totale
-acf(ts_ORO_diff, ylab = "ACF", xlab = "lag", main = "Autocorrelazione serie storica differenziata 1 volta")
-#ACF dal file del prof
-ggAcf(ts_ORO_diff, lag.max = NULL)+theme_bw()+ylab(label="Prezzo dell'oro")+labs(title="Autocorrelazione serie storica differenziata 1 volta")
+acf(ts_Gold_diff, ylab = "ACF", xlab = "lag", main = "ACF Time Series 1 time differenciated")
 
-####ATTENZIONE CON LE DUE FUNZIONI ABBIAMO RISULTATI apparentemente DIVERSI. Questo perché ggACF non mostra l'ACF in x = 0 che è sempre 1 (correlazione della serie con se stessa obv è perfetta ossia = 1).
-
-
-#rifacciamo il grafico acf con ggplot che viene più carino
-acf_data <- acf(ts_ORO_diff, plot = FALSE)
-df_acf <- data.frame(Lag = acf_data$lag, ACF = acf_data$acf) # Trasforma i dati in un dataframe
-ggplot(df_acf, aes(x = Lag, y = ACF)) +
-  geom_bar(stat = "identity", fill = "darkblue", alpha = 0.7) +
-  labs(title = "Autocorrelazione differenziata 1 volta", x = "Lag", y = "ACF")
-
-
-#Poiché decresce velocemente la serie è stazionaria con una sola differenziazione: d = 1 (abbiamo un picco in 1)
+#Poiché decresce velocemente la serie è stazionaria con una sola differenziazione: d = 1 
+#abbiamo un picco in 0, che possiamo ignorare, perché mostra che la serie è autocorrelata con se stessa
 ```
-Una volta assicuratici che la serie è stazionaria grazie al controllo dell'ACF, possiamo controllare anche il PACF
+#Una volta assicuratici che la serie è stazionaria grazie al controllo dell'ACF, possiamo controllare anche il PACF
 
 PACF con la serie differenziata 1 volta:
 ```{r}
 # Serve a trovare il valore di p.
-pacf(ts_ORO_diff, ylab = "PACF", xlab = "lag", plot = TRUE, main = "Autocorrelazione parziale della serie storica differenziata 1 volta")
+pacf(ts_Gold_diff, ylab = "PACF", xlab = "lag", plot = TRUE, main = "Autocorrelazione parziale della serie storica differenziata 1 volta")
 
 #notiamo dei picchi (positivi e negativi) in 1, 2, 16
 #il resto dei valori sembra rimanere di "molto" all'interno della fascia del rumore di fondo, quindi non lo consideriamo
@@ -202,20 +172,18 @@ pacf(ts_ORO_diff, ylab = "PACF", xlab = "lag", plot = TRUE, main = "Autocorrelaz
 
 ```{r}
 #Per vedere acf serie storica e pacf insieme
-ggtsdisplay(ts_ORO_diff, main = "Serie storica differenziata 1 volta: autocorrelazione e autocorrelazione parziale")
-ggtsdisplay(ts_ORO_originale, main = "Serie storica del prezzo dell'ORO: autocorrelazione e autocorrelazione parziale")
+ggtsdisplay(ts_Gold_diff, main = "Time Series, ACF, PACF original version")
+ggtsdisplay(ts_Gold_original, main = "Time Series, ACF, PACF 1 time differenciated")
 ```
 
-ACF dei residui versione differenziata:
+#Controllo formale della stazionarietà con Augmented Dickey-Fuller:
+```{r}
+adf.test(Gold$Price)
+```
+
+#ACF dei residui versione differenziata:
 ```{r}
 #-- questa è un'idea, è da investigare la validità teorica --#
-#Prova del ACF e altri grafici residui con serie differenziata 1 volta
-decomposition_diff <- stl(ts_ORO_diff, s.window = "periodic", robust=T)
-
-autoplot(decomposition_diff)
-
-ggAcf(decomposition_diff$time.series[, "remainder"], main = 'Autocorrelazione dei residui della serie differenziata 1 volta')
-
 
 #Sembra che i valori dell'ACF stiano molto più nel range e quindi forse ora possiamo considerare ok il controllo dei pattern della serie storica (?) CHIEDERE AL PROFESSOREù
 #Ho messo formule più brevi anche se meno belle perché non sapendone l'utilità non c'ho voluto "buttare" tempo
@@ -244,7 +212,7 @@ IMPORTANTE!!!
 
 Per implementare Arima e non mandarlo in overfitting tagliamo il dataset
 ```{r}
-ORO <- ORO %>% filter(Date >= as.Date("2021-11-09")) #(3 anni/periodi, ognuno da 261 osservazioni)
+Gold <- Gold %>% filter(Date >= as.Date("2021-11-09")) #(3 anni/periodi, ognuno da 261 osservazioni)
 ```
 
 
@@ -252,12 +220,12 @@ ORO <- ORO %>% filter(Date >= as.Date("2021-11-09")) #(3 anni/periodi, ognuno da
 
 ```{r}
 # Dividiamo i dati di trend in set di addestramento e set di test
-train_size <- floor(0.80 * nrow(ORO))  # 80% dei dati per l'addestramento
-y_train <- ORO$Prezzo[1:train_size]  # Set di addestramento (80%)
-y_test <- ORO$Prezzo[(train_size + 1):nrow(ORO)]  # Set di test (20%)
+train_size <- floor(0.80 * nrow(Gold))  # 80% dei dati per l'addestramento
+y_train <- Gold$Price[1:train_size]  # Set di addestramento (80%)
+y_test <- Gold$Price[(train_size + 1):nrow(Gold)]  # Set di test (20%)
 
 # Estraiamo la colonna delle date per il set di test
-dates_test <- ORO$Date[(train_size + 1):nrow(ORO)]  # Data per il set di test
+dates_test <- Gold$Date[(train_size + 1):nrow(Gold)]  # Data per il set di test
 ```
 
 DA RUNNARE INSIEME ALTRIMENTI NON VA! Si prende qualche minuto.
@@ -276,7 +244,7 @@ for (i in 1:length(y_test)) {
   ARIMA_Model <- auto.arima(history, seasonal=TRUE)
   next_prediction <- forecast(ARIMA_Model, h=1)$mean  # Predizione a 1 passo
   y_prediction_auto <- c(y_prediction_auto, next_prediction)
-  history <- c(history, ORO$Prezzo[train_size + i])
+  history <- c(history, Gold$Price[train_size + i])
 }
 
 # Creiamo un dataframe con le previsioni automatiche, i valori reali e le date
@@ -323,7 +291,7 @@ for (i in 1:length(y_test)) {
   y_prediction_manual <- c(y_prediction_manual, next_prediction)
   
   # Aggiorniamo il set di addestramento aggiungendo il prossimo valore dei dati
-  history <- c(history, ORO$Prezzo[train_size + i])
+  history <- c(history, Gold$Price[train_size + i])
 }
 
 # Creiamo un dataframe con le previsioni manuali, i valori reali e le date
@@ -347,9 +315,9 @@ print(ARIMA_Manual_Model)
 ggplot(df_results_auto, aes(x = Date)) +
   geom_line(aes(y = Actual_Gold_Price, color = "Real Prices"), size = 1) +
   geom_line(aes(y = Predicted_Gold_Price, color = "Predicted Prices"), size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro vs Prezzo Reale - Modello Automatico",
+  labs(title = "Previsioni del Price dell'Gold vs Prezzo Reale - Modello Automatico",
        x = "Data",
-       y = "Prezzo dell'Oro",
+       y = "Prezzo dell'Gold",
        color = "Legenda") +
   theme_minimal() +
   scale_color_manual(values = c("Real Prices" = "blue", "Predicted Prices" = "red"))
@@ -358,9 +326,9 @@ ggplot(df_results_auto, aes(x = Date)) +
 ggplot(df_results_manual, aes(x = Date)) +
   geom_line(aes(y = Actual_Gold_Price, color = "Real Prices"), size = 1) +
   geom_line(aes(y = Predicted_Gold_Price, color = "Predicted Prices"), size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro vs Prezzo Reale - Modello Manuale",
+  labs(title = "Previsioni del Prezzo dell'Gold vs Prezzo Reale - Modello Manuale",
        x = "Data",
-       y = "Prezzo dell'Oro",
+       y = "Prezzo dell'Gold",
        color = "Legenda") +
   theme_minimal() +
   scale_color_manual(values = c("Real Prices" = "blue", "Predicted Prices" = "red"))
@@ -384,10 +352,10 @@ install.packages("tseries")
 
 library(tseries)
 # Dividiamo i dati in set di addestramento e set di test
-train_size <- floor(0.80 * nrow(ORO))  # 80% per l'addestramento
-y_train <- ORO$Prezzo[1:train_size]  # Set di addestramento (80%)
-y_test <- ORO$Prezzo[(train_size + 1):nrow(ORO)]  # Set di test (20%)
-dates_test <- ORO$Date[(train_size + 1):nrow(ORO)]  # Date per il set di test
+train_size <- floor(0.80 * nrow(Gold))  # 80% per l'addestramento
+y_train <- Gold$Price[1:train_size]  # Set di addestramento (80%)
+y_test <- Gold$Price[(train_size + 1):nrow(Gold)]  # Set di test (20%)
+dates_test <- Gold$Date[(train_size + 1):nrow(Gold)]  # Date per il set di test
 ```
 
 AUgmented Dickey Fuller
@@ -438,7 +406,7 @@ if (model_choice == "auto") {
 selected_date <- as.Date(readline(prompt = "Inserisci la data di previsione nel formato %Y-%m-%d: "), format="%Y-%m-%d")
 
 # Verifica che la data sia successiva all'ultima data del set di addestramento
-last_train_date <- as.Date(ORO$Date[train_size], format="%Y-%m-%d")
+last_train_date <- as.Date(Gold$Date[train_size], format="%Y-%m-%d")
 if (selected_date <= last_train_date) {
   stop("La data selezionata deve essere successiva all'ultima data del set di addestramento.")
 }
@@ -457,15 +425,15 @@ df_forecast <- data.frame(
 )
 
 # Mostriamo i risultati
-print("Previsioni del prezzo dell'oro fino alla data selezionata:")
+print("Previsioni del prezzo dell'Gold fino alla data selezionata:")
 print(df_forecast)
 
 # Grafico delle previsioni
 ggplot(df_forecast, aes(x = Date, y = Predicted_Gold_Price)) +
   geom_line(color = "red", size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro",
+  labs(title = "Previsioni del Prezzo dell'Gold",
        x = "Data", 
-       y = "Prezzo dell'Oro") +
+       y = "Prezzo dell'Gold") +
   theme_minimal()
 
 ```
@@ -483,257 +451,14 @@ ggplot(df_forecast, aes(x = Date, y = Predicted_Gold_Price)) +
 
 
 
-#-------------------------------------------------------------#
-    Questa era la versione della previsione precedente, non sapendo se magari qualcosa può ancora essere utile ho pensato di lasciarla, se pensate sia inutile, cancellate. -B.
-#------------------------------------------------------------------------------#
-
-Arrivati qui, possiamo concludere che è possibile usare il modello autoArima (forse p sbagliata)
-
-```{r}
-ARIMA_model <- auto.arima(ORO$Prezzo,stepwise=FALSE,approximation=FALSE,seasonal=F)
-# Evaluate the model
-summary(ARIMA_model)  #modello ottimo trovato ARIMA(0,1,4) 
-# check the residuals of the model
-checkresiduals(ARIMA_model)
-# do the residuals looks like white noise?
-acf(ARIMA_model$residuals)
-Box.test(ARIMA_model$residuals, lag = 28, fitdf = 5, type = "Ljung")
-autoplot(forecast(ARIMA_model))
-```
-
-auto.arima()
-ARIMA_model <- auto.arima(ORO$Prezzo,stepwise=FALSE,approximation=FALSE,seasonal=F)
-
-autoplot(forecast(ARIMA_model))
-autoplot(forecast(model1))
-
-
-```{r}
-```
-
-
-
-
-PROVIAMO I MODELLI:
-(0,1,1) - (1,1,1) - (2,1,1) - (16,1,1)
-(0,1,2) - (1,1,2) - (2,1,2) - (16,1,2)
-(0,1,3) - (1,1,3) - (2,1,3) - (16,1,3)
-(0,1,4) - (1,1,4) - (2,1,4) - (16,1,4)
-
-```{r}
-#ARIMA(0,1,1)
-model1 = Arima(ORO$Prezzo,c(0,1,1),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model1), h=30)
-```
-
-
-```{r}
-#ARIMA(1,1,1)
-model2 = Arima(ORO$Prezzo,c(1,1,1),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model2))
-```
-
-```{r}
-#ARIMA(2,1,1)
-model3 = Arima(ORO$Prezzo,c(2,1,1),seasonal =TRUE,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model3))
-```
-
-```{r}
-#ARIMA(16,1,1) #CANDIDATO
-model4 = Arima(ORO$Prezzo,c(16,1,1),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model4))
-```
-
-
-```{r}
-#ARIMA(0,1,2)
-model5 = Arima(ORO$Prezzo,c(0,1,2),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model5), h=30)
-```
-
-
-```{r}
-#ARIMA(1,1,2)
-model6 = Arima(ORO$Prezzo,c(1,1,2),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model6))
-```
-
-```{r}
-#ARIMA(2,1,2)
-model7 = Arima(ORO$Prezzo,c(2,1,2),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model7))
-```
-
-```{r}
-#ARIMA(16,1,2) #CANDIDATO
-model8 = Arima(ORO$Prezzo,c(16,1,2),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model8))
-```
-
-```{r}
-#ARIMA(0,1,3)
-model9 = Arima(ORO$Prezzo,c(0,1,3),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model9), h=30)
-```
-
-
-```{r}
-#ARIMA(1,1,3)
-model10 = Arima(ORO$Prezzo,c(1,1,4),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model10$fitted
-autoplot(forecast(model10))
-```
-
-```{r}
-#ARIMA(2,1,3)
-model11 = Arima(ORO$Prezzo,c(2,1,3),seasonal = TRUE,include.mean = T,
-               include.drift = T,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-plot(forecast(model11))
-```
-
-```{r}
-#ARIMA(16,1,3) #CANDIDATO
-model12 = Arima(ORO$Prezzo,c(16,1,3),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model12))
-```
-
-```{r}
-#ARIMA(0,1,4)
-model13 = Arima(ORO$Prezzo,c(0,1,4),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model13), h=30)
-```
-
-
-```{r}
-#ARIMA(1,1,4)
-model14 = Arima(ORO$Prezzo,c(1,1,4),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model14))
-```
-
-```{r}
-#ARIMA(2,1,4)
-model15 = Arima(ORO$Prezzo,c(2,1,4),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model15))
-```
-
-```{r}
-#ARIMA(16,1,4) #CANDIDATO
-model16 = Arima(ORO$Prezzo,c(16,1,4),seasonal = NULL,include.mean = T,
-               include.drift = F,
-               include.constant = F,
-               method = "CSS")
-#model1$fitted
-autoplot(forecast(model16))
-```
-
-
-
-
-#questa è roba per controllare
-```{r}
-# Grafico con range personalizzato sull'asse x
-autoplot(model1, h = 3) +
-  xlim(2021, 2024)  # Sostituisci con i limiti desiderati
-
-#
-autoplot(forecast(model1)) +
-  ggtitle("Previsione dei prezzi dell'oro") +
-  xlab("Tempo") +
-  ylab("Prezzo")
-
-
-```
-
-
-
-#---------------------------------------------------------------------#
 
 Dickey-Fuller aumentato (ADF) #bozza
 
 ```{r}
 library(ggplot2)
-autoplot(ts_ORO_originale)
+autoplot(ts_Gold_original)
 
 library(tseries)
-adf.test(ORO$Prezzo)  # Test di stazionarietà (richiede il pacchetto tseries)
+adf.test(Gold$Price)  # Test di stazionarietà (richiede il pacchetto tseries)
 
 ```
-
-#---------------------------------------------------------------------#
-
-CONTROLLO DELLA BONTA' DEL MODELLO
-
-```{r}
-#si prende il valore minimo di aikage e bic
-LL, BIC, AIC
-```
-
-Andiamo a calcolare LL: LogLikehod
-```{r}
-library(forecast)
-
-# Fit di un modello ARIMA
-modello <- arima(ts_ORO_diff, order = c(1, 1, 1))
-
-# Calcolo del log-likelihood
-log_likelihood <- logLik(modello)
-print(log_likelihood)
