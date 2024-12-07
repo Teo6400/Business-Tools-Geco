@@ -21,8 +21,8 @@ ORO$Date <- as.Date(ORO$Date, format = "%Y-%m-%d")
 # Filtriamo i dati per mantenere solo quelli a partire dal 7 Novembre 2021
 ORO <- ORO %>% filter(Date >= as.Date("2021-12-02"))
 
-# Rinominiamo la colonna "close" in "Prezzo" per maggiore chiarezza
-ORO <- ORO %>% rename(Prezzo = close)
+# Rinominiamo la colonna "close" in "Price" per maggiore chiarezza
+ORO <- ORO %>% rename(Price = close)
 
 # Ordiniamo i dati per data crescente
 ORO <- ORO %>% arrange(Date)
@@ -34,7 +34,7 @@ str(ORO)
 # Preparazione della serie temporale e decomposizione
 
 # Converte il dataset in una serie temporale (ts) con frequenza giornaliera (365 giorni all'anno)
-Gold_ts <- ts(ORO$Prezzo, frequency = 260, start = c(year(min(ORO$Date)), yday(min(ORO$Date))))
+Gold_ts <- ts(ORO$Price, frequency = 260, start = c(year(min(ORO$Date)), yday(min(ORO$Date))))
 
 # Decomposizione della serie temporale usando STL (Seasonal and Trend decomposition using Loess)
 decomposition <- stl(Gold_ts, s.window = "periodic")
@@ -45,7 +45,7 @@ par(mfrow = c(4, 1), mar = c(4, 4, 2, 1))
 # Controlliamo la nuova serie differenziata
 plot(Gold_diff, 
      main = "Differenced Time Series", 
-     ylab = "Differenced Prezzo dell'Oro", 
+     ylab = "Differenced Price dell'Oro", 
      col = "blue", 
      lwd = 2)
 
@@ -96,7 +96,7 @@ acf(Gold_diff, main = "ACF Plot of Residuals", col = "blue", lwd = 2)
 Gold_diff <- diff(Gold_ts)
 
 # Controlliamo la nuova serie differenziata
-plot(Gold_diff, main = "Differenced Time Series", ylab = "Differenced Prezzo dell'Oro", col = "blue", lwd = 2)
+plot(Gold_diff, main = "Differenced Time Series", ylab = "Differenced Price dell'Oro", col = "blue", lwd = 2)
 
 # Controllo della struttura della serie differenziata
 str(Gold_diff)
@@ -116,11 +116,11 @@ pacf(Gold_diff, main = "PACF Plot of Differenced Time Series", col = "blue", lwd
 
 library(forecast)
 
-# Supponiamo che il dataset si chiami 'ORO' e contenga le colonne 'Date' e 'Prezzo'
+# Supponiamo che il dataset si chiami 'ORO' e contenga le colonne 'Date' e 'Price'
 # Dividiamo i dati in set di addestramento e set di test
 train_size <- floor(0.80 * nrow(ORO))  # 80% per l'addestramento
-y_train <- ORO$Prezzo[1:train_size]  # Set di addestramento (80%)
-y_test <- ORO$Prezzo[(train_size + 1):nrow(ORO)]  # Set di test (20%)
+y_train <- ORO$Price[1:train_size]  # Set di addestramento (80%)
+y_test <- ORO$Price[(train_size + 1):nrow(ORO)]  # Set di test (20%)
 dates_test <- ORO$Date[(train_size + 1):nrow(ORO)]  # Data per il set di test
 
 # Selezione automatica del miglior modello ARIMA
@@ -138,7 +138,7 @@ for (i in 1:length(y_test)) {
   ARIMA_Model <- auto.arima(history, seasonal=TRUE)
   next_prediction <- forecast(ARIMA_Model, h=1)$mean  # Predizione a 1 passo
   y_prediction_auto <- c(y_prediction_auto, next_prediction)
-  history <- c(history, ORO$Prezzo[train_size + i])
+  history <- c(history, ORO$Price[train_size + i])
 }
 
 # Creiamo un dataframe con le previsioni automatiche, i valori reali e le date
@@ -181,7 +181,7 @@ for (i in 1:length(y_test)) {
   y_prediction_manual <- c(y_prediction_manual, next_prediction)
   
   # Aggiorniamo il set di addestramento aggiungendo il prossimo valore dei dati
-  history <- c(history, ORO$Prezzo[train_size + i])
+  history <- c(history, ORO$Price[train_size + i])
 }
 
 # Creiamo un dataframe con le previsioni manuali, i valori reali e le date
@@ -210,9 +210,9 @@ print(ARIMA_Manual_Model)
 ggplot(df_results_auto, aes(x = Date)) +
   geom_line(aes(y = Actual_Gold_Price, color = "Real Prices"), size = 1) +
   geom_line(aes(y = Predicted_Gold_Price, color = "Predicted Prices"), size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro vs Prezzo Reale - Modello Automatico",
+  labs(title = "Previsioni del Price dell'Oro vs Price Reale - Modello Automatico",
        x = "Data",
-       y = "Prezzo dell'Oro",
+       y = "Price dell'Oro",
        color = "Legenda") +
   theme_minimal() +
   scale_color_manual(values = c("Real Prices" = "blue", "Predicted Prices" = "red"))
@@ -221,9 +221,9 @@ ggplot(df_results_auto, aes(x = Date)) +
 ggplot(df_results_manual, aes(x = Date)) +
   geom_line(aes(y = Actual_Gold_Price, color = "Real Prices"), size = 1) +
   geom_line(aes(y = Predicted_Gold_Price, color = "Predicted Prices"), size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro vs Prezzo Reale - Modello Manuale",
+  labs(title = "Previsioni del Price dell'Oro vs Price Reale - Modello Manuale",
        x = "Data",
-       y = "Prezzo dell'Oro",
+       y = "Price dell'Oro",
        color = "Legenda") +
   theme_minimal() +
   scale_color_manual(values = c("Real Prices" = "blue", "Predicted Prices" = "red"))
@@ -235,8 +235,8 @@ library(ggplot2)
 
 # Dividiamo i dati in set di addestramento e test
 train_size <- floor(0.80 * nrow(ORO))
-y_train <- ORO$Prezzo[1:train_size]
-y_test <- ORO$Prezzo[(train_size + 1):nrow(ORO)]
+y_train <- ORO$Price[1:train_size]
+y_test <- ORO$Price[(train_size + 1):nrow(ORO)]
 dates_test <- ORO$Date[(train_size + 1):nrow(ORO)]
 
 # Modello ARIMA automatico
@@ -290,13 +290,13 @@ print(future_results)
 
 # Grafico delle previsioni
 ggplot() +
-  geom_line(data = df_results_auto, aes(x = Date, y = Actual_Gold_Price, color = "Prezzo Reale"), size = 1) +
+  geom_line(data = df_results_auto, aes(x = Date, y = Actual_Gold_Price, color = "Price Reale"), size = 1) +
   geom_line(data = df_results_auto, aes(x = Date, y = Predicted_Gold_Price, color = "Previsione Test"), size = 1) +
   geom_line(data = future_results, aes(x = Date, y = Predicted_Price, color = "Previsione Futuro"), size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro",
-       x = "Data", y = "Prezzo (€)", color = "Legenda") +
+  labs(title = "Previsioni del Price dell'Oro",
+       x = "Data", y = "Price (€)", color = "Legenda") +
   theme_minimal() +
-  scale_color_manual(values = c("Prezzo Reale" = "blue", "Previsione Test" = "red", "Previsione Futuro" = "green"))
+  scale_color_manual(values = c("Price Reale" = "blue", "Previsione Test" = "red", "Previsione Futuro" = "green"))
 
 #zoom
 
@@ -310,13 +310,13 @@ november_start <- as.Date("2024-11-01")  # Modifica questa data a seconda di qua
 
 # Grafico delle previsioni con limiti sugli assi
 ggplot() +
-  geom_line(data = df_results_auto, aes(x = Date, y = Actual_Gold_Price, color = "Prezzo Reale"), size = 1) +
+  geom_line(data = df_results_auto, aes(x = Date, y = Actual_Gold_Price, color = "Price Reale"), size = 1) +
   geom_line(data = df_results_auto, aes(x = Date, y = Predicted_Gold_Price, color = "Previsione Test"), size = 1) +
   geom_line(data = future_results, aes(x = Date, y = Predicted_Price, color = "Previsione Futuro"), size = 1) +
-  labs(title = "Previsioni del Prezzo dell'Oro",
-       x = "Data", y = "Prezzo (€)", color = "Legenda") +
+  labs(title = "Previsioni del Price dell'Oro",
+       x = "Data", y = "Price (€)", color = "Legenda") +
   theme_minimal() +
-  scale_color_manual(values = c("Prezzo Reale" = "blue", "Previsione Test" = "red", "Previsione Futuro" = "green")) +
+  scale_color_manual(values = c("Price Reale" = "blue", "Previsione Test" = "red", "Previsione Futuro" = "green")) +
   xlim(november_start, max(future_results$Date)) +  # Limita l'asse x da novembre in poi
   ylim(y_lower_limit, y_upper_limit)  # Imposta i limiti dell'asse Y tra 75 e 85
 
