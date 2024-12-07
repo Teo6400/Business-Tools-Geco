@@ -1,0 +1,148 @@
+library(dplyr)
+library(GGally)
+library(FactoMineR)
+library(factoextra)
+
+# Lettura del dataset
+diamonds <- read.csv("C:/Users/sara1/Downloads/diamonds.csv/diamonds.csv")
+
+# Conversione delle variabili categoriali in valori numerici
+diamonds_cust <- diamonds %>%
+  mutate(
+    color = as.integer(as.factor(color)), 
+    cut = as.integer(as.factor(cut)),
+    clarity = as.integer(as.factor(clarity))
+  )
+
+diamonds_cust <- diamonds_cust %>% select(-X) 
+
+# Visualizzazione generale della struttura del dataset
+glimpse(diamonds_cust)
+
+# Statistiche descrittive del dataset
+summary(diamonds_cust)
+
+# Calcolo e visualizzazione della matrice di correlazione
+ggcorr(diamonds_cust, label = T)  
+
+# Calcolo del numero di valori distinti per ciascuna colonna
+diamonds_cust %>% summarise_all(n_distinct)
+
+# Imposta il generatore di numeri casuali e crea un sottoinsieme casuale del dataset
+set.seed(100)  # Per replicabilità dei risultati
+intrain <- sample(nrow(diamonds_cust), nrow(diamonds_cust)*0.002)  # Estrae il 0.2% dei dati
+diamonds_subset <- diamonds_cust[intrain,]  # Crea il sottoinsieme
+dim(diamonds_subset)  # Controlla la dimensione del sottoinsieme
+
+# Standardizzazione del sottoinsieme
+diamonds_subset_scaled <- scale(diamonds_subset)  # Centra e scala le variabili
+diamonds_subset %>% head(100)%>% summarise_all(n_distinct)  # Verifica la diversità nei primi 100 dati
+
+# PCA sul dataset standardizzato
+library(FactoMineR)
+pca_diamonds <- PCA(diamonds_subset_scaled, scale.unit=F)  # PCA senza riscalare le variabili
+
+# Controllo di specifici dati osservati per capire eventuali problemi
+diamonds_subset_scaled[c(81,31,46,61),]
+
+# Visualizzazione della somma dei quadrati intra-cluster per determinare il numero ottimale di cluster
+library(factoextra)
+fviz_nbclust(diamonds_subset_scaled, kmeans, method = "wss")
+
+# Esecuzione del clustering k-means con 2 cluster
+set.seed(100)  # Replicabilità
+diamonds_cluster <- kmeans(diamonds_subset_scaled, centers = 2)
+
+# Aggiunta del cluster assegnato al dataset originale
+diamonds_subset$cluster <- diamonds_cluster$cluster
+
+# Visualizzazione dei cluster con una grafica
+fviz_cluster(diamonds_cluster, data = diamonds_subset_scaled)
+
+# Calcolo delle medie per ciascun cluster
+diamonds_subset %>% 
+  group_by(cluster) %>% 
+  summarise_all(mean)
+
+#BOXPLOT
+
+# Carica le librerie necessarie
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Funzione per visualizzare i cluster con boxplot
+visualizza_clusters_boxplot <- function(dataset, cluster_col, variables) {
+  
+  # Controlla che il cluster e le variabili esistano nel dataset
+  if (!(cluster_col %in% colnames(dataset))) {
+    stop("La colonna del cluster non esiste nel dataset.")
+  }
+  
+  # Seleziona le variabili da visualizzare
+  dataset_selected <- dataset %>% select(all_of(c(cluster_col, variables)))
+  
+  # Reshape il dataset per una visualizzazione facile con ggplot
+  dataset_melted <- dataset_selected %>%
+    pivot_longer(cols = variables, names_to = "variable", values_to = "value")
+  
+  # Crea il boxplot con ggplot
+  ggplot(dataset_melted, aes(x = factor(.data[[cluster_col]]), y = value, fill = factor(.data[[cluster_col]]))) +
+    geom_boxplot() +
+    facet_wrap(~variable, scales = "free") +
+    labs(x = "Cluster", y = "Valore", title = "Boxplot per ciascun cluster") +
+    theme_minimal() +
+    theme(legend.position = "none")
+}
+
+# Esempio di utilizzo della funzione con i tuoi dati
+# Supponiamo che diamonds_subset sia il tuo dataset con i cluster già aggiunti
+visualizza_clusters_boxplot(diamonds_subset, "cluster", 
+                            c("carat", "cut", "color", "clarity", "depth", "price", "x", "y", "z"))
+                          
+                        
+#GRAFICO 1
+# Funzione per visualizzare il grafico di dispersione tra carat e price, colorato per cluster
+visualizza_cluster <- function(data) {
+  # Controlla se la colonna 'cluster' esiste nel dataset
+  if(!"cluster" %in% colnames(data)) {
+    stop("La colonna 'cluster' non esiste nel dataset.")
+  }
+  
+  # Creazione del grafico con ggplot2
+  ggplot(data, aes(x = carat, y = price, color = factor(cluster))) +
+    geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+    labs(
+      title = "Distribuzione dei Cluster (carat vs price)",
+      x = "Carato (carat)",
+      y = "Prezzo (price)"
+    ) +
+    theme_minimal() +
+    scale_color_brewer(palette = "Set1")  # Colori dei cluster
+}
+
+# Esegui la funzione con il tuo dataset (assicurati che il dataset abbia la colonna 'cluster')
+visualizza_cluster(diamonds_subset)
+
+#GRAFICO 2
+# Funzione per visualizzare il grafico di dispersione tra size (x * y * z) e price, colorato per cluster
+visualizza_cluster_size <- function(data) {
+  # Controlla se la colonna 'cluster' e 'size' esistono nel dataset
+  
+  data$size <- data$x * data$y * data$z
+  
+  # Creazione del grafico con ggplot2
+  ggplot(data, aes(x = size, y = price, color = factor(cluster))) +
+    geom_point(alpha = 0.6, size = 2) +  # Punti con trasparenza
+    labs(
+      title = "Distribuzione dei Cluster (size vs price)",
+      x = "Size",
+      y = "Prezzo (price)"
+    ) +
+    theme_minimal() +
+    scale_color_brewer(palette = "Set1")  # Colori dei cluster
+}
+
+# Esegui la funzione con il tuo dataset (assicurati che il dataset abbia la colonna 'cluster' e 'size')
+visualizza_cluster_size(diamonds_subset)
+
