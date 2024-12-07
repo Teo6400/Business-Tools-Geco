@@ -34,7 +34,7 @@ str(ORO)
 # Preparazione della serie temporale e decomposizione
 
 # Converte il dataset in una serie temporale (ts) con frequenza giornaliera (365 giorni all'anno)
-Gold_ts <- ts(ORO$Price, frequency = 260, start = c(year(min(ORO$Date)), yday(min(ORO$Date))))
+Gold_ts <- ts(ORO$Price, Frequency = 260, start = c(year(min(ORO$Date)), yday(min(ORO$Date))))
 
 # Decomposizione della serie temporale usando STL (Seasonal and Trend decomposition using Loess)
 decomposition <- stl(Gold_ts, s.window = "periodic")
