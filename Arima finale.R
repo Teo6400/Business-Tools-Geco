@@ -10,7 +10,7 @@ library(ggplot2)
 library(lubridate) #per utilizzare le date
 
 # Caricamento del dataset e preparazione dei dati
-ORO <- read.csv("C:/Users/teo_b/OneDrive/Desktop/lavoro qui - tools/amCharts (2).csv")
+ORO <- read.csv("C:/Users/teo_b/OneDrive/Desktop/lavoro qui - tools/amCharts aggiornato.csv")
 
 # Selezione delle colonne utili (Date e close)
 ORO <- ORO %>% select(Date, close)
@@ -34,7 +34,7 @@ str(ORO)
 # Preparazione della serie temporale e decomposizione
 
 # Converte il dataset in una serie temporale (ts) con frequenza giornaliera (365 giorni all'anno)
-Gold_ts <- ts(ORO$Price, Frequency = 260, start = c(year(min(ORO$Date)), yday(min(ORO$Date))))
+Gold_ts <- ts(ORO$Price, frequency = 260, start = c(year(min(ORO$Date)), yday(min(ORO$Date))))
 
 # Decomposizione della serie temporale usando STL (Seasonal and Trend decomposition using Loess)
 decomposition <- stl(Gold_ts, s.window = "periodic")
@@ -42,16 +42,8 @@ decomposition <- stl(Gold_ts, s.window = "periodic")
 # Creazione dei grafici
 par(mfrow = c(4, 1), mar = c(4, 4, 2, 1))
 
-# Controlliamo la nuova serie differenziata
-plot(Gold_diff, 
-     main = "Differenced Time Series", 
-     ylab = "Differenced Price dell'Oro", 
-     col = "blue", 
-     lwd = 2)
-
-# Aggiungere una linea orizzontale a 0
-abline(h = 0, col = "red", lwd = 2)
-
+# Grafico della serie temporale originale
+plot(Gold_ts, main = "Original Time Series for Gold Price", ylab = "Price dell'Oro", col = "blue", lwd = 2)
 
 # Grafico del Trend
 plot(decomposition$time.series[, "trend"], main = "Trend", ylab = "Trend", col = "darkgreen", lwd = 2)
@@ -76,6 +68,7 @@ ggplot(data = data.frame(residuals), aes(x = residuals)) +
   geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.6) +
   labs(title = "Residuals Histogram", x = "Residuals", y = "Relative Frequency") +
   theme_minimal()
+
 
 # Grafico Q-Q dei residui
 # Creiamo una nuova finestra grafica per il Q-Q plot
@@ -266,7 +259,7 @@ df_results_auto <- data.frame(
 print(df_results_auto)
 
 # Previsioni future (iterative)
-horizon <- 10
+horizon <- 15
 future_predictions <- numeric(horizon)
 current_history <- c(y_train, y_test)
 
