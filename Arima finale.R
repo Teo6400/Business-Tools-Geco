@@ -51,10 +51,34 @@ plot(Gold_ts, main = "Original Time Series for Gold Price", ylab = "Price dell'O
 plot(decomposition$time.series[, "trend"], main = "Trend", ylab = "Trend", col = "darkgreen", lwd = 2)
 
 # Grafico della Componente Stagionale
-plot(decomposition$time.series[, "seasonal"], main = "Seasonal", ylab = "Seasonal", col = "purple", lwd = 2)
+tempo <- as.numeric(time(decomposition$time.series))
+
+plot(decomposition$time.series[, "seasonal"], 
+     main = "Seasonal", 
+     ylab = "Seasonal", 
+     col = "purple", 
+     lwd = 2)
+# Linea orizzontale tratteggiata per y=0
+lines(x = tempo, 
+      y = rep(0, length(decomposition$time.series[, "seasonal"])), 
+      col = "black", 
+      lty = 2, 
+      lwd = 1)
 
 # Grafico dei Residui
-plot(decomposition$time.series[, "remainder"], main = "Residuals", ylab = "Residuals", col = "red", lwd = 2)
+plot(decomposition$time.series[, "remainder"], 
+     main = "Residuals", 
+     ylab = "Residuals", 
+     col = "red", 
+     lwd = 2)
+# Linea orizzontale tratteggiata per y=0
+lines(x = tempo, 
+      y = rep(0, length(decomposition$time.series[, "remainder"])), 
+      col = "black", 
+      lty = 2, 
+      lwd = 1)
+
+
 
 # Ripristina la finestra grafica
 par(mfrow = c(1, 1))
@@ -69,6 +93,21 @@ residuals <- decomposition$time.series[, "remainder"]
 ggplot(data = data.frame(residuals), aes(x = residuals)) +
   geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.6) +
   labs(title = "Residuals Histogram", x = "Residuals", y = "Relative Frequency") +
+  theme_minimal()
+
+# Istogramma dei residui con linea
+
+# Calcolo della media e della deviazione standard dei residui
+mean_residuals <- mean(residuals, na.rm = TRUE)
+sd_residuals <- sd(residuals, na.rm = TRUE)
+
+#Istogramma + Gaussiana
+ggplot(data = data.frame(residuals), aes(x = residuals)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.6) +
+  stat_function(fun = dnorm, args = list(mean = mean_residuals, sd = sd_residuals), 
+                color = "red", linewidth = 1) +
+  labs(title = "Residuals Histogram with Gaussian Fit", 
+       x = "Residuals", y = "Density") +
   theme_minimal()
 
 
@@ -93,6 +132,9 @@ Gold_diff <- diff(Gold_ts)
 # Controlliamo la nuova serie differenziata
 plot(Gold_diff, main = "Differenced Time Series", ylab = "Differenced Price dell'Oro", col = "blue", lwd = 2)
 
+# Aggiungere una linea orizzontale a 0
+abline(h = 0, col = "red", lwd = 2)
+
 # Controllo della struttura della serie differenziata
 str(Gold_diff)
 
@@ -103,7 +145,11 @@ acf(Gold_diff, main = "ACF Plot of Differenced Time Series", col = "blue", lwd =
 # Grafico PACF della serie differenziata
 pacf(Gold_diff, main = "PACF Plot of Differenced Time Series", col = "blue", lwd = 2)
 
-
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+  ###DA QUI CAMBIARE FILE TO Arima_TRAINING_ERRORI finale###
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
 ###Predizione###
 
 
