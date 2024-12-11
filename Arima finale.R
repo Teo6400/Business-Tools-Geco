@@ -11,6 +11,7 @@ library(lubridate) #per utilizzare le date
 
 # Caricamento del dataset e preparazione dei dati
 ORO <- read.csv("C:/Users/teo_b/OneDrive/Desktop/lavoro qui - tools/amCharts aggiornato.csv")
+ORO <- read.csv("C:/Users/famdr/Downloads/Dati_11_12_24.csv")
 
 # Selezione delle colonne utili (Date e close)
 ORO <- ORO %>% select(Date, close)
@@ -18,8 +19,9 @@ ORO <- ORO %>% select(Date, close)
 # Formattazione della colonna Date come formato data corretto
 ORO$Date <- as.Date(ORO$Date, format = "%Y-%m-%d")
 
-# Filtriamo i dati per mantenere solo quelli a partire dal 7 Novembre 2021
+# Filtriamo i dati per mantenere solo quelli a partire dal 2 Dicembre 2021
 ORO <- ORO %>% filter(Date >= as.Date("2021-12-02"))
+ORO <- ORO %>% filter(Date >= as.Date("2021-12-09")) #dati aggiornati all'11 dicembre
 
 # Rinominiamo la colonna "close" in "Price" per maggiore chiarezza
 ORO <- ORO %>% rename(Price = close)
@@ -105,10 +107,6 @@ pacf(Gold_diff, main = "PACF Plot of Differenced Time Series", col = "blue", lwd
 ###Predizione###
 
 
-#Prova 4
-
-library(forecast)
-
 # Supponiamo che il dataset si chiami 'ORO' e contenga le colonne 'Date' e 'Price'
 # Dividiamo i dati in set di addestramento e set di test
 train_size <- floor(0.80 * nrow(ORO))  # 80% per l'addestramento
@@ -142,6 +140,7 @@ df_results_auto <- data.frame(
 )
 
 print(df_results_auto)
+View(df_results_auto)
 
 # Calcoliamo l'errore assoluto medio (MAE) per il modello automatico
 mae_auto <- mean(abs(df_results_auto$Actual_Gold_Price - df_results_auto$Predicted_Gold_Price))
