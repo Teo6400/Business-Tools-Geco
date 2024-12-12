@@ -285,7 +285,7 @@ print(ARIMA_Model)
 # Validazione walk-forward (previsioni per dati di test)
 y_prediction_auto <- numeric(0)
 history <- y_train
-###aspettare qualche secondo###
+
 for (i in 1:length(y_test)) {
   ARIMA_Model <- auto.arima(history, seasonal = TRUE)
   next_prediction <- forecast(ARIMA_Model, h = 1)$mean
@@ -306,13 +306,17 @@ print(df_results_auto)
 # Previsioni future (iterative)
 horizon <- 15
 future_predictions <- numeric(horizon)
+lower_bound <- numeric(horizon)
+upper_bound <- numeric(horizon)
 current_history <- c(y_train, y_test)
 
-#aspettare qualche secondo per addestramento dino ad orizzonte richiesto
 for (i in 1:horizon) {
   ARIMA_Model <- auto.arima(current_history, seasonal = TRUE)
-  next_prediction <- forecast(ARIMA_Model, h = 1)$mean
+  forecast_result <- forecast(ARIMA_Model, h = 1)
+  next_prediction <- forecast_result$mean
   future_predictions[i] <- next_prediction
+  lower_bound[i] <- forecast_result$lower[2]  # 95% lower bound
+  upper_bound[i] <- forecast_result$upper[2]  # 95% upper bound
   current_history <- c(current_history, next_prediction)
 }
 
@@ -322,7 +326,9 @@ ARIMA_Model <- auto.arima(y_train, seasonal = TRUE)
 future_dates <- seq(from = max(ORO$Date), by = "days", length.out = horizon)
 future_results <- data.frame(
   Date = future_dates,
-  Predicted_Price = future_predictions
+  Predicted_Price = future_predictions,
+  Lower_Bound = lower_bound,
+  Upper_Bound = upper_bound
 )
 print(future_results)
 
@@ -331,33 +337,31 @@ ggplot() +
   geom_line(data = df_results_auto, aes(x = Date, y = Actual_Gold_Price, color = "Price Reale"), size = 1) +
   geom_line(data = df_results_auto, aes(x = Date, y = Predicted_Gold_Price, color = "Previsione Test"), size = 1) +
   geom_line(data = future_results, aes(x = Date, y = Predicted_Price, color = "Previsione Futuro"), size = 1) +
+  geom_ribbon(data = future_results, aes(x = Date, ymin = Lower_Bound, ymax = Upper_Bound), 
+              fill = "grey80", alpha = 0.5) +
   labs(title = "Previsioni del Price dell'Oro",
        x = "Data", y = "Price (€)", color = "Legenda") +
   theme_minimal() +
   scale_color_manual(values = c("Price Reale" = "blue", "Previsione Test" = "red", "Previsione Futuro" = "green"))
 
-#zoom
-
-
-# Definiamo i limiti dell'asse Y
+# Grafico con limiti dell'asse Y
 y_lower_limit <- 75  # Limite inferiore dell'asse Y
 y_upper_limit <- 85  # Limite superiore dell'asse Y
 
-# Definiamo la data di inizio per novembre (assicurati che le date siano nel formato corretto)
-november_start <- as.Date("2024-11-01")  # Modifica questa data a seconda di quando inizia novembre nei tuoi dati
+november_start <- as.Date("2024-11-01")  # Modifica la data secondo il tuo dataset
 
-# Grafico delle previsioni con limiti sugli assi
 ggplot() +
   geom_line(data = df_results_auto, aes(x = Date, y = Actual_Gold_Price, color = "Price Reale"), size = 1) +
   geom_line(data = df_results_auto, aes(x = Date, y = Predicted_Gold_Price, color = "Previsione Test"), size = 1) +
   geom_line(data = future_results, aes(x = Date, y = Predicted_Price, color = "Previsione Futuro"), size = 1) +
+  geom_ribbon(data = future_results, aes(x = Date, ymin = Lower_Bound, ymax = Upper_Bound), 
+              fill = "grey80", alpha = 0.5) +
   labs(title = "Previsioni del Price dell'Oro",
        x = "Data", y = "Price (€)", color = "Legenda") +
   theme_minimal() +
   scale_color_manual(values = c("Price Reale" = "blue", "Previsione Test" = "red", "Previsione Futuro" = "green")) +
-  xlim(november_start, max(future_results$Date)) +  # Limita l'asse x da novembre in poi
-  ylim(y_lower_limit, y_upper_limit)  # Imposta i limiti dell'asse Y tra 75 e 85
-
+  xlim(november_start, max(future_results$Date)) +
+  ylim(y_lower_limit, y_upper_limit)
 
 
 ###proviamo a vedere un po meglio
